@@ -56,7 +56,7 @@ public abstract class BasicUpgradeFinalizer
     <T, V extends AbstractLayoutVersionManager> implements UpgradeFinalizer<T> {
 
   private final V versionManager;
-  private String clientID;
+  protected String clientID;
   private T component;
   private UpgradeFinalizationExecutor<T> finalizationExecutor;
   // Ensures that there is only one finalization thread running at a time.

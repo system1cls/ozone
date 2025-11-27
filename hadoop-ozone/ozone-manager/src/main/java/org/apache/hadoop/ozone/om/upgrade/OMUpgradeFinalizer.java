@@ -23,6 +23,7 @@ import org.apache.hadoop.ozone.common.Storage;
 import org.apache.hadoop.ozone.om.OzoneManager;
 
 import java.io.IOException;
+import java.util.UUID;
 
 import org.apache.hadoop.ozone.om.ratis.utils.OzoneManagerRatisUtils;
 import org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.OMRequest;
@@ -39,7 +40,6 @@ import static org.apache.hadoop.ozone.protocol.proto.OzoneManagerProtocolProtos.
  */
 public class OMUpgradeFinalizer extends BasicUpgradeFinalizer<OzoneManager,
     OMLayoutVersionManager> {
-  private static final ClientId CLIENT_ID = ClientId.randomId();
 
   public OMUpgradeFinalizer(OMLayoutVersionManager versionManager) {
     super(versionManager);
@@ -47,16 +47,18 @@ public class OMUpgradeFinalizer extends BasicUpgradeFinalizer<OzoneManager,
 
   @Override
   public void preFinalizeUpgrade(OzoneManager ozoneManager) {
+    ClientId clientId = clientIdFromString(this.clientID);
     final OMRequest omRequest = OMRequest.newBuilder()
             .setCmdType(AddFinalizingMark)
-            .setClientId(ClientId.randomId().toString())
+            .setClientId(clientId)
             .build();
     try {
       LOG.info("Try to send request to add finalizing mark");
-      OzoneManagerRatisUtils.submitRequest(ozoneManager, omRequest, CLIENT_ID, 0);
-      LOG.info("Successfully send request to add finalizing mark");
+      OzoneManagerRatisUtils.submitRequest(ozoneManager, omRequest, clientId, 0);
+      emitOMAddFinalizingMarkSuccess();
     } catch (Throwable e) {
       LOG.error("Add finalizing mark request failed.", e);
+      emitOMAddFinalizingMarkError();
     }
   }
 
@@ -64,8 +66,8 @@ public class OMUpgradeFinalizer extends BasicUpgradeFinalizer<OzoneManager,
   public void finalizeLayoutFeature(LayoutFeature layoutFeature,
                                     OzoneManager om) throws UpgradeException {
     try {
-      om.getFinalizationManager().getFinalizationStateManager()
-          .finalizeLayoutFeature(layoutFeature.layoutVersion());
+      logAndEmit(om.getFinalizationManager().getFinalizationStateManager()
+          .finalizeLayoutFeature(layoutFeature.layoutVersion(), this.clientID));
     } catch (IOException ex) {
       throw new UpgradeException(ex,
           UpgradeException.ResultCodes.LAYOUT_FEATURE_FINALIZATION_FAILED);
@@ -81,16 +83,18 @@ public class OMUpgradeFinalizer extends BasicUpgradeFinalizer<OzoneManager,
 
   @Override
   public void postFinalizeUpgrade(OzoneManager ozoneManager) {
+    ClientId clientId = clientIdFromString(this.clientID);
     final OMRequest omRequest = OMRequest.newBuilder()
             .setCmdType(RemoveFinalizingMark)
-            .setClientId(ClientId.randomId().toString())
+            .setClientId(clientId)
             .build();
     try {
       LOG.info("Try to send request to remove finalizing mark");
-      OzoneManagerRatisUtils.submitRequest(ozoneManager, omRequest, CLIENT_ID, 0);
-      LOG.info("Successfully send request to remove finalizing mark");
+      OzoneManagerRatisUtils.submitRequest(ozoneManager, omRequest, clientId, 0);
+      emitRemoveFinalizingMarkSuccess();
     } catch (Throwable e) {
       LOG.error("Remove finalizing mark request failed.", e);
+      emitRemoveFinalizingMarkError();
     }
   }
 
@@ -99,4 +103,29 @@ public class OMUpgradeFinalizer extends BasicUpgradeFinalizer<OzoneManager,
     super.runPrefinalizeStateActions(
         lf -> ((OMLayoutFeature) lf)::action, storage, om);
   }
+
+
+  private ClientId clientIdFromString(String strId) {
+      return ClientId.valueOf(strId);
+  }
+
+    private void emitOMAddFinalizingMarkSuccess() {
+        String msg = "Successfully send request to add finalizing mark";
+        logAndEmit(msg);
+    }
+
+    private void emitOMAddFinalizingMarkError() {
+      String msg = "Add finalizing mark request failed.";
+      this.logAndEmit(msg);
+    }
+
+    private void emitRemoveFinalizingMarkSuccess() {
+      String msg = "Successfully send request to remove finalizing mark";
+      logAndEmit(msg);
+    }
+
+    private void emitRemoveFinalizingMarkError() {
+      String msg = "Remove finalizing mark request failed.";
+      logAndEmit(msg);
+    }
 }

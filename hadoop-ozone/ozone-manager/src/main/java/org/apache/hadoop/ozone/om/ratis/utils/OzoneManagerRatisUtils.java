@@ -520,7 +520,7 @@ public final class OzoneManagerRatisUtils {
 
   public static OzoneManagerProtocolProtos.OMResponse submitRequest(
       OzoneManager om, OMRequest omRequest, ClientId clientId, long callId) throws ServiceException {
-    if (!om.isRatisEnabled()) {
+    if (om.isRatisEnabled()) {
       LOG.info("ratisEnabled");
       return om.getOmRatisServer().submitRequest(omRequest, clientId, callId);
     } else {

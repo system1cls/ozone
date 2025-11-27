@@ -27,7 +27,7 @@ public interface FinalizationStateManager {
 
   void removeFinalizingMark() throws IOException;
 
-  void finalizeLayoutFeature(Integer layoutVersion)
+  String finalizeLayoutFeature(Integer layoutVersion, String clientId)
       throws IOException;
 
   void finalizeLayoutFeatureLocal(Integer layoutVersion)

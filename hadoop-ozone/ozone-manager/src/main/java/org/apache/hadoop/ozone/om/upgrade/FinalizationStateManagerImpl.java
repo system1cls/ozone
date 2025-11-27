@@ -21,6 +21,7 @@ package org.apache.hadoop.ozone.om.upgrade;
 import com.google.common.annotations.VisibleForTesting;
 
 import java.io.IOException;
+import java.util.UUID;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
@@ -42,7 +43,6 @@ public class FinalizationStateManagerImpl implements FinalizationStateManager {
   @VisibleForTesting
   public static final Logger LOG =
       LoggerFactory.getLogger(FinalizationStateManagerImpl.class);
-  private static final ClientId CLIENT_ID = ClientId.randomId();
 
   private final OzoneManager ozoneManager;
   private final OMLayoutVersionManager versionManager;
@@ -81,21 +81,23 @@ public class FinalizationStateManagerImpl implements FinalizationStateManager {
   }
 
   @Override
-  public void finalizeLayoutFeature(Integer layoutVersion) {
+  public String finalizeLayoutFeature(Integer layoutVersion, String clientId) {
+    ClientId clientIdO = clientIdFromString(clientId);
     LayoutVersion lv = LayoutVersion.newBuilder()
             .setVersion(layoutVersion)
             .build();
     final OMRequest omRequest = OMRequest.newBuilder()
             .setCmdType(FinalizeLayoutFeature)
-            .setClientId(ClientId.randomId().toString())
+            .setClientId(clientIdO)
             .setLayoutVersion(lv)
             .build();
       try {
         LOG.info("Try to send request to finalize LF");
-        OzoneManagerRatisUtils.submitRequest(ozoneManager, omRequest, CLIENT_ID, 0);
-        LOG.info("Successfully send request to finalize LF");
+        OzoneManagerRatisUtils.submitRequest(ozoneManager, omRequest, clientIdO, 0);
+        return "Successfully send request to finalize LF";
       } catch (Throwable e) {
         LOG.error("Finalize layout feature request failed.", e);
+        return "Finalize layout feature request failed.";
       }
   }
 
@@ -170,4 +172,10 @@ public class FinalizationStateManagerImpl implements FinalizationStateManager {
       }
     }
   }
+
+
+    private ClientId clientIdFromString(String strId) {
+        return ClientId.valueOf(strId);
+    }
+
 }
